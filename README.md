@@ -1,0 +1,1 @@
+vcpkg install --head corrade magnum magnum[*] magnum-integration magnum-integration[*]
