@@ -66,6 +66,8 @@ namespace Magnum
 			_shader.draw(_mesh);
 
 			swapBuffers();
+
+			redraw();
 		}
 
 	}
