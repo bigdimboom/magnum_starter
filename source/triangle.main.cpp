@@ -12,8 +12,7 @@
 #include <Magnum/Math/Matrix4.h>
 #include <Magnum/GlmIntegration/Integration.h>
 
-#include <imgui.h>
-#include <Magnum/ImGuiIntegration/Context.hpp>
+#include "engine/overlay.h"
 
 namespace Magnum
 {
@@ -40,8 +39,10 @@ namespace Magnum
 
 			GL::Mesh _mesh;
 			Shaders::VertexColor2D _shader;
-			ImGuiIntegration::Context _imgui{ NoCreate };
-			bool _showDemoWindow = true;
+			bool _showDemoWindow = false;
+
+			std::shared_ptr<graphics::Overlay> d_overlay;
+
 		};
 
 		TriangleExample::TriangleExample(const Arguments& arguments) :
@@ -50,9 +51,18 @@ namespace Magnum
 			spdlog::set_level(spdlog::level::debug);
 			spdlog::info("triangle");
 
+			d_overlay = std::make_shared<graphics::Overlay>(this);
+			d_overlay->enableFPSCounter(true);
+			d_overlay->add([this](graphics::Overlay&)
+			{
+				ImGui::Checkbox("test chdeck box", &_showDemoWindow);
 
-			_imgui = ImGuiIntegration::Context(Vector2{ windowSize() } / dpiScaling(),
-				windowSize(), framebufferSize());
+				if (_showDemoWindow)
+				{
+					ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
+					ImGui::ShowDemoWindow();
+				}
+			});
 
 			/* Set up proper blending to be used by ImGui. There's a great chance
 			   you'll need this exact behavior for the rest of your scene. If not, set
@@ -96,43 +106,9 @@ namespace Magnum
 		void TriangleExample::drawEvent() {
 			GL::defaultFramebuffer.clear(GL::FramebufferClear::Color);
 
-			_imgui.newFrame();
-
-
-			/* Enable text input, if needed */
-			if (ImGui::GetIO().WantTextInput && !isTextInputActive())
-				startTextInput();
-			else if (!ImGui::GetIO().WantTextInput && isTextInputActive())
-				stopTextInput();
-
-			/* 3. Show the ImGui demo window. Most of the sample code is in
-			   ImGui::ShowDemoWindow() */
-			if (_showDemoWindow) {
-				ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
-				ImGui::ShowDemoWindow();
-			}
-
-
-			/* Update application cursor */
-			_imgui.updateApplicationCursor(*this);
-
-			/* Set appropriate states. If you only draw ImGui, it is sufficient to
-			   just enable blending and scissor test in the constructor. */
-			GL::Renderer::enable(GL::Renderer::Feature::Blending);
-			GL::Renderer::enable(GL::Renderer::Feature::ScissorTest);
-			GL::Renderer::disable(GL::Renderer::Feature::FaceCulling);
-			GL::Renderer::disable(GL::Renderer::Feature::DepthTest);
-
-			_imgui.drawFrame();
-
-			/* Reset state. Only needed if you want to draw something else with
-			   different state after. */
-			GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
-			GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
-			GL::Renderer::disable(GL::Renderer::Feature::ScissorTest);
-			GL::Renderer::disable(GL::Renderer::Feature::Blending);
-
 			_shader.draw(_mesh);
+
+			d_overlay->render();
 
 			swapBuffers();
 
@@ -143,38 +119,38 @@ namespace Magnum
 		{
 			GL::defaultFramebuffer.setViewport({ {}, event.framebufferSize() });
 
-			_imgui.relayout(Vector2{ event.windowSize() } / event.dpiScaling(),
+			d_overlay->imGuiCtx().relayout(Vector2{ event.windowSize() } / event.dpiScaling(),
 				event.windowSize(), event.framebufferSize());
 		}
 
 		void TriangleExample::keyPressEvent(KeyEvent& event)
 		{
-			if (_imgui.handleKeyPressEvent(event)) return;
+			if (d_overlay->imGuiCtx().handleKeyPressEvent(event)) return;
 		}
 
 		void TriangleExample::keyReleaseEvent(KeyEvent& event)
 		{
-			if (_imgui.handleKeyReleaseEvent(event)) return;
+			if (d_overlay->imGuiCtx().handleKeyReleaseEvent(event)) return;
 		}
 
 		void TriangleExample::mousePressEvent(MouseEvent& event)
 		{
-			if (_imgui.handleMousePressEvent(event)) return;
+			if (d_overlay->imGuiCtx().handleMousePressEvent(event)) return;
 		}
 
 		void TriangleExample::mouseReleaseEvent(MouseEvent& event)
 		{
-			if (_imgui.handleMouseReleaseEvent(event)) return;
+			if (d_overlay->imGuiCtx().handleMouseReleaseEvent(event)) return;
 		}
 
 		void TriangleExample::mouseMoveEvent(MouseMoveEvent& event)
 		{
-			if (_imgui.handleMouseMoveEvent(event)) return;
+			if (d_overlay->imGuiCtx().handleMouseMoveEvent(event)) return;
 		}
 
 		void TriangleExample::mouseScrollEvent(MouseScrollEvent& event)
 		{
-			if (_imgui.handleMouseScrollEvent(event)) {
+			if (d_overlay->imGuiCtx().handleMouseScrollEvent(event)) {
 				/* Prevent scrolling the page */
 				event.setAccepted();
 				return;
@@ -183,7 +159,7 @@ namespace Magnum
 
 		void TriangleExample::textInputEvent(TextInputEvent& event)
 		{
-			if (_imgui.handleTextInputEvent(event)) return;
+			if (d_overlay->imGuiCtx().handleTextInputEvent(event)) return;
 		}
 
 	}
