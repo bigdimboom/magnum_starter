@@ -43,7 +43,11 @@ add_library(engine
  "source/engine/overlay.h"
  "source/engine/camera.h"
  "source/engine/free_camera.h" 
- "source/engine/free_camera.cpp")
+ "source/engine/free_camera.cpp"
+ "source/engine/debug_draw.h"
+ "source/engine/debug_draw.cpp"
+ )
+
 target_link_libraries(engine PUBLIC ${VCPKG_DEPS})
 
 # Add source to this project's executable.
