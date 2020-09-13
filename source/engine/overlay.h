@@ -3,9 +3,10 @@
 //
 
 #pragma once
+
 #include <imgui.h>
-#include <Magnum/GL/Renderer.h>
 #include <Magnum/ImGuiIntegration/Context.hpp>
+#include <Magnum/GL/Renderer.h>
 #include <Magnum/Platform/Sdl2Application.h>
 #include <Magnum/ImGuiIntegration/Widgets.h>
 #include <functional>

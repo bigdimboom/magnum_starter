@@ -23,20 +23,19 @@ endif()
 set(VCPKG_DEPS 
     spdlog::spdlog
     Corrade::Main
-    Corrade::Containers
     Magnum::Application
+    Corrade::Containers
     Magnum::GL
     Magnum::Magnum
     Magnum::Shaders
     Magnum::MeshTools
     Magnum::Primitives
-    imgui::imgui
     MagnumIntegration::ImGui
     MagnumIntegration::Glm)
 
 set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
 
-add_library(engine  
+add_library(engine
  "source/engine/object_pool.h" 
  "source/engine/object_pool.cpp"
  "source/engine/overlay.cpp"
@@ -46,12 +45,14 @@ add_library(engine
  "source/engine/free_camera.cpp"
  "source/engine/debug_draw.h"
  "source/engine/debug_draw.cpp"
+ "source/engine/ImGuizmo.h"
+ "source/engine/ImGuizmo.cpp"
  )
 
 target_link_libraries(engine PUBLIC ${VCPKG_DEPS})
 
 # Add source to this project's executable.
 add_executable (cube WIN32 "source/cube.main.cpp")
-target_link_libraries(cube PRIVATE engine)
+target_link_libraries(cube PUBLIC engine Corrade::Main)
 
 # TODO: Add tests and install targets if needed.

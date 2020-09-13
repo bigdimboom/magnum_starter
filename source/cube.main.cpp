@@ -28,7 +28,8 @@
 #include <SDL2/SDL.h>
 
 #include "engine/debug_draw.h"
-
+#include "engine/ImGuizmo.h"
+#include <glm/ext.hpp>
 
 namespace Magnum
 {
@@ -60,6 +61,7 @@ private:
 	Shaders::Phong _shader;
 	Color3 _color;
 
+	glm::mat4 d_cubeModelMatrix = glm::mat4(1.0f);
 	std::shared_ptr<graphics::FreeCamera> d_cam;
 	std::shared_ptr<graphics::DebugDraw> d_dd;
 };
@@ -69,19 +71,6 @@ CubeExample::CubeExample(const Arguments& arguments) :
 {
 	spdlog::set_level(spdlog::level::debug);
 	spdlog::info("triangle");
-
-	d_overlay = std::make_shared<graphics::Overlay>(this);
-	d_overlay->enableFPSCounter(true);
-	d_overlay->add([this](graphics::Overlay&)
-	{
-		ImGui::Checkbox("test chdeck box", &_showDemoWindow);
-
-		if (_showDemoWindow)
-		{
-			ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
-			ImGui::ShowDemoWindow();
-		}
-	});
 
 	//GL::Renderer::enable(GL::Renderer::Feature::DepthTest);
 	//GL::Renderer::enable(GL::Renderer::Feature::FaceCulling);
@@ -93,6 +82,30 @@ CubeExample::CubeExample(const Arguments& arguments) :
 	//							   GL::Renderer::BlendEquation::Add);
 	//GL::Renderer::setBlendFunction(GL::Renderer::BlendFunction::SourceAlpha,
 	//							   GL::Renderer::BlendFunction::OneMinusSourceAlpha);
+
+	d_overlay = std::make_shared<graphics::Overlay>(this);
+	d_overlay->enableFPSCounter(true);
+	d_overlay->add([this](graphics::Overlay&)
+	{
+		ImGui::Checkbox("test chdeck box", &_showDemoWindow);
+		if (_showDemoWindow)
+		{
+			ImGui::SetNextWindowPos(ImVec2(650, 20), ImGuiCond_FirstUseEver);
+			ImGui::ShowDemoWindow();
+		}
+
+		{
+			//ImGui::Begin("transform edit");
+			ImGuizmo::SetOrthographic(false);
+			ImGuizmo::BeginFrame();
+			ImGuiIO& io = ImGui::GetIO();
+			ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+			ImGuizmo::Manipulate(glm::value_ptr(d_cam->view()), glm::value_ptr(d_cam->proj()),
+								 ImGuizmo::TRANSLATE, ImGuizmo::WORLD,
+								 glm::value_ptr(d_cubeModelMatrix));
+			//ImGui::End();
+		}
+	});
 
 #if !defined(MAGNUM_TARGET_WEBGL) && !defined(CORRADE_TARGET_ANDROID)
 	/* Have some sane speed, please */
@@ -145,7 +158,7 @@ void CubeExample::drawEvent() {
 	GL::defaultFramebuffer.clear(GL::FramebufferClear::Color | GL::FramebufferClear::Depth);
 	GL::defaultFramebuffer.clearColor(Magnum::Color4(0, 0, 0, 0));
 
-	Matrix4 _transformation(d_cam->view());
+	Matrix4 _transformation(d_cam->view() * d_cubeModelMatrix);
 	Matrix4 _projection(d_cam->proj());
 
 	_shader.setLightPosition({ 0.0f, 5.0f, 8.0f })
