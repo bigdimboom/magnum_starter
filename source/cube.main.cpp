@@ -67,7 +67,7 @@ private:
 };
 
 CubeExample::CubeExample(const Arguments& arguments) :
-	Platform::Application{ arguments, Configuration{}.setTitle("Magnum Triangle Example") }
+	Platform::Application{ arguments, Configuration{}.setTitle("Magnum Triangle Example").setSize({1024, 768}) }
 {
 	spdlog::set_level(spdlog::level::debug);
 	spdlog::info("triangle");

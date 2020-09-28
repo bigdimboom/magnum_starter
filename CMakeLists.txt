@@ -9,7 +9,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
 
 find_package(spdlog CONFIG REQUIRED)
 find_package(Corrade REQUIRED Main Containers)
-find_package(Magnum REQUIRED GL Shaders MeshTools Primitives)
+find_package(Magnum REQUIRED GL Shaders MeshTools Primitives Trade)
 find_package(MagnumIntegration REQUIRED ImGui Glm)
 
 if(CORRADE_TARGET_ANDROID)
@@ -30,10 +30,16 @@ set(VCPKG_DEPS
     Magnum::Shaders
     Magnum::MeshTools
     Magnum::Primitives
+    Magnum::Trade
     MagnumIntegration::ImGui
     MagnumIntegration::Glm)
 
 set_directory_properties(PROPERTIES CORRADE_USE_PEDANTIC_FLAGS ON)
+
+#file(GLOB_RECURSE FAST_NOISE_SIMD 
+#"source/engine/FastNoiseSIMD/*.cpp" 
+#"source/engine/FastNoiseSIMD/*.h")
+#message(WARNING ${FAST_NOISE_SIMD})
 
 add_library(engine
  "source/engine/object_pool.h" 
@@ -47,12 +53,17 @@ add_library(engine
  "source/engine/debug_draw.cpp"
  "source/engine/ImGuizmo.h"
  "source/engine/ImGuizmo.cpp"
- )
+ "source/engine/fast_noise.h")
 
 target_link_libraries(engine PUBLIC ${VCPKG_DEPS})
 
 # Add source to this project's executable.
 add_executable (cube WIN32 "source/cube.main.cpp")
 target_link_libraries(cube PUBLIC engine Corrade::Main)
+
+# Add source to this project's executable.
+corrade_add_resource(Shader_RESOURCES "source/shader/resources.conf")
+add_executable (terrain "source/terrain.main.cpp"  ${Shader_RESOURCES})
+target_link_libraries(terrain PUBLIC engine Corrade::Main)
 
 # TODO: Add tests and install targets if needed.
