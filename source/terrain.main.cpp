@@ -71,10 +71,16 @@ public:
 		d_modelMatrix = uniformLocation("uModelMat");
 		d_viewProjMatrix = uniformLocation("uCamViewProjMat");
 		d_gridRez = uniformLocation("uGridRez");
+		d_gridStepSize = uniformLocation("uGridStepSize");
+		d_gridHeightBoost = uniformLocation("uGridHeightBoosts");
+		d_camPosVec3 = uniformLocation("uCamPos");
 
 		setModelMatrix(glm::mat4(1.0f));
 		setViewProjectMatrix(glm::mat4(1.0f));
 		setGridRez(1);
+		setGridStepSize(1.0f);
+		setGridElevationBoost(10.0f);
+		setCamPos(glm::vec3(0.0f));
 
 		setUniform(uniformLocation("elevationMap"), TextureUnit);
 	}
@@ -91,9 +97,27 @@ public:
 		return *this;
 	}
 
+	TerrainShader& setCamPos(const glm::vec3& campos)
+	{
+		setUniform(d_camPosVec3, Vector3(campos));
+		return *this;
+	}
+
 	TerrainShader& setGridRez(uint32_t rez)
 	{
 		setUniform(d_gridRez, int(rez));
+		return *this;
+	}
+
+	TerrainShader& setGridStepSize(float size)
+	{
+		setUniform(d_gridStepSize, size);
+		return *this;
+	}
+
+	TerrainShader& setGridElevationBoost(float scale)
+	{
+		setUniform(d_gridHeightBoost, scale);
 		return *this;
 	}
 
@@ -106,8 +130,126 @@ public:
 private:
 	Int d_modelMatrix = 0;
 	Int d_viewProjMatrix = 0;
+	Int d_camPosVec3 = 0;
 	Int d_gridRez = 0;
+	Int d_gridStepSize = 0;
+	Int d_gridHeightBoost = 0;
+
 	enum : Int { TextureUnit = 0 };
+};
+
+class Clipmap
+{
+public:
+	Clipmap(uint32_t dim_n, uint32_t levels, float stepsize)
+	{
+		typedef GL::Attribute<0, Vector2> Position;
+
+		size_t m = (dim_n + 1) / 4;
+
+		{
+			// init block
+			std::vector<glm::vec2> blockV;
+			std::vector<glm::uint16> blockI;
+			blockV.resize(m * m);
+			blockI.resize((m - 1) * 6 * (m - 1));
+
+			for (size_t row = 0; row < m; ++row)
+			{
+				for (size_t col = 0; col < m; ++col)
+				{
+					blockV[row * m + col] = glm::vec2(col, row);
+				}
+			}
+
+			for (size_t row = 0; row < m - 1; ++row)
+			{
+				for (size_t col = 0; col < m - 1; ++col)
+				{
+					size_t id = row * m + col;
+					size_t id_dy = (row + 1) * m + col;
+					size_t width = 6 * (m - 1);
+
+					blockI[row * width + col * 6 + 0] = id;
+					blockI[row * width + col * 6 + 1] = id_dy;
+					blockI[row * width + col * 6 + 2] = id_dy + 1;
+
+					blockI[row * width + col * 6 + 3] = id;
+					blockI[row * width + col * 6 + 4] = id_dy + 1;
+					blockI[row * width + col * 6 + 5] = id + 1;
+				}
+			}
+
+			GL::Buffer blockVBuffer, blockIBuffer;
+			blockVBuffer.setData(blockV);
+			blockIBuffer.setData(blockI);
+
+			d_blockMesh
+				.addVertexBuffer(std::move(blockVBuffer), 0, Position{})
+				.setIndexBuffer(std::move(blockIBuffer), 0, MeshIndexType::UnsignedShort)
+				.setCount(blockI.size())
+				.setPrimitive(MeshPrimitive::Triangles);
+		}
+
+		// init ring fix up
+		{
+			std::vector<glm::vec2> blockV;
+			std::vector<glm::uint16> blockI;
+			blockV.resize(m * 3);
+			blockI.resize((3 - 1) * 6 * (m - 1));
+
+			for (size_t row = 0; row < m; ++row)
+			{
+				for (size_t col = 0; col < 3; ++col)
+				{
+					blockV[row * 3 + col] = glm::vec2(col, row);
+				}
+			}
+
+			for (size_t row = 0; row < m - 1; ++row)
+			{
+				for (size_t col = 0; col < 3 - 1; ++col)
+				{
+					size_t id = row * 3 + col;
+					size_t id_dy = (row + 1) * 3 + col;
+					size_t width = 6 * (3 - 1);
+
+					blockI[row * width + col * 6 + 0] = id;
+					blockI[row * width + col * 6 + 1] = id_dy;
+					blockI[row * width + col * 6 + 2] = id_dy + 1;
+
+					blockI[row * width + col * 6 + 3] = id;
+					blockI[row * width + col * 6 + 4] = id_dy + 1;
+					blockI[row * width + col * 6 + 5] = id + 1;
+				}
+			}
+
+			GL::Buffer blockVBuffer, blockIBuffer;
+			blockVBuffer.setData(blockV);
+			blockIBuffer.setData(blockI);
+
+			d_ringFixUpMesh
+				.addVertexBuffer(std::move(blockVBuffer), 0, Position{})
+				.setIndexBuffer(std::move(blockIBuffer), 0, MeshIndexType::UnsignedShort)
+				.setCount(blockI.size())
+				.setPrimitive(MeshPrimitive::Triangles);
+		}
+
+
+	}
+
+	void draw()
+	{
+
+	}
+
+
+
+private:
+	GL::Mesh d_blockMesh;
+	GL::Mesh d_ringFixUpMesh;
+
+
 };
 
 
@@ -154,10 +296,10 @@ TerrainExample::TerrainExample(const Arguments& arguments) :
 
 	// TODO: prepare terrain
 	// Create and configure FastNoise object
-	size_t dim = 256;
+	size_t dim = 512;
 	std::vector<float> noiseData(dim* dim);
 
-	FastNoiseLite noise(1337);
+	FastNoiseLite noise;
 	noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 	noise.SetFrequency(0.01f);
 
@@ -182,16 +324,18 @@ TerrainExample::TerrainExample(const Arguments& arguments) :
 		}
 	}
 
+	int levels = Math::log2((int)dim) + 1;
 	ImageView2D image(PixelFormat::R32F, { (int)dim, (int)dim }, noiseData);
-	d_elevationMap.setMagnificationFilter(GL::SamplerFilter::Linear)
+	d_elevationMap
+		.setMagnificationFilter(GL::SamplerFilter::Linear)
 		.setMinificationFilter(GL::SamplerFilter::Linear, GL::SamplerMipmap::Linear)
 		.setWrapping(GL::SamplerWrapping::ClampToEdge)
 		.setMaxAnisotropy(GL::Sampler::maxMaxAnisotropy())
-		.setStorage(Math::log2((int)dim) + 1, GL::TextureFormat::R32F, { (int)dim, (int)dim })
+		.setStorage(levels, GL::TextureFormat::R32F, { (int)dim, (int)dim })
 		.setSubImage(0, {}, image)
 		.generateMipmap();
 
-	size_t meshres = dim * 2;
+	size_t meshres = 255;
 	std::vector<uint32_t> indices((meshres - 1) * 6 * (meshres - 1));
 	for (size_t row = 0; row < meshres - 1; ++row)
 	{
@@ -217,8 +361,10 @@ TerrainExample::TerrainExample(const Arguments& arguments) :
 		.setIndexBuffer(std::move(indexBuffer), 0, MeshIndexType::UnsignedInt)
 		.setPrimitive(MeshPrimitive::Triangles)
 		.setCount(indices.size());
-	d_terrainShader.setGridRez(meshres);
-
+	d_terrainShader
+		.setGridRez(meshres)
+		.setGridStepSize(1.0)
+		.setGridElevationBoost(10.0f);
 
 	graphics::FreeCameraCreateInfo1 ci;
 	ci.near = 0.1;
@@ -259,6 +405,7 @@ void TerrainExample::drawEvent() {
 	d_terrainShader
 		.setViewProjectMatrix(d_cam->viewProj())
 		.bindElevationTexture(d_elevationMap)
+		.setCamPos(d_cam->pos())
 		.draw(d_terrainMesh);
 	GL::Renderer::setPolygonMode(GL::Renderer::PolygonMode::Fill);
 
